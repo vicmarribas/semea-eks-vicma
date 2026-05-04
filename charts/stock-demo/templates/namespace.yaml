@@ -1,0 +1,9 @@
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    admission.datadoghq.com/enabled: "true"
+{{- end }}

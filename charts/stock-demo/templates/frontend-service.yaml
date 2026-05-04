@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-frontend
+  namespace: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/name: stock-frontend
+spec:
+  type: {{ .Values.service.frontend.type }}
+  selector:
+    app.kubernetes.io/name: stock-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.service.frontend.port }}
+      targetPort: 3000
+  {{- if .Values.ipAllowlist }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.ipAllowlist | nindent 4 }}
+  {{- end }}

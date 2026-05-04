@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-db
+  namespace: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/name: stock-db
+spec:
+  selector:
+    app.kubernetes.io/name: stock-db
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: 5432
+      targetPort: 5432

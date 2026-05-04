@@ -1,0 +1,64 @@
+{{- $component := "stock-backend" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $component }}
+spec:
+  replicas: {{ .Values.replicaCount.backend }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $component }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "stock-demo.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ $component }}
+        {{- with (dict "component" $component "Values" .Values "Chart" .Chart) }}
+        {{- include "stock-demo.ddLabels" . | nindent 8 }}
+        {{- end }}
+      annotations:
+        ad.datadoghq.com/stock-backend.logs: |
+          [{"source": "python", "service": {{ $component | quote }}}]
+    spec:
+      containers:
+        - name: stock-backend
+          image: "{{ .Values.images.backend.repository }}:{{ .Values.images.backend.tag }}"
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DD_ENV
+              value: {{ .Values.datadog.env | quote }}
+            - name: DD_SERVICE
+              value: {{ $component | quote }}
+            - name: DD_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: DD_SITE
+              value: {{ .Values.datadog.site | quote }}
+            {{- include "stock-demo.ddAgentHostEnv" . | nindent 12 }}
+            - name: DD_TRACE_AGENT_PORT
+              value: "8126"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "stock-demo.secretName" . }}
+                  key: database-url
+          resources:
+            {{- toYaml .Values.resources.backend | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10

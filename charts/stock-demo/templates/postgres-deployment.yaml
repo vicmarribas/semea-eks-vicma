@@ -1,0 +1,66 @@
+{{- $component := "stock-db" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-db
+  namespace: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $component }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $component }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "stock-demo.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ $component }}
+        {{- with (dict "component" $component "Values" .Values "Chart" .Chart) }}
+        {{- include "stock-demo.ddLabels" . | nindent 8 }}
+        {{- end }}
+      annotations:
+        ad.datadoghq.com/postgres.checks: |
+          {
+            "postgres": {
+              "instances": [{"host": "%%host%%", "port": 5432,
+                             "username": "datadog",
+                             "password": "%%env_DD_POSTGRES_PASSWORD%%",
+                             "dbname": {{ .Values.postgres.database | quote }},
+                             "ssl": "disable"}]
+            }
+          }
+        ad.datadoghq.com/postgres.logs: |
+          [{"source": "postgresql", "service": {{ $component | quote }}}]
+    spec:
+      tolerations:
+        - key: workload-type
+          value: critical
+          effect: NoSchedule
+      containers:
+        - name: postgres
+          image: "{{ .Values.images.postgres.repository }}:{{ .Values.images.postgres.tag }}"
+          imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "stock-demo.secretName" . }}
+                  key: postgres-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            {{- toYaml .Values.resources.postgres | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-db-pvc

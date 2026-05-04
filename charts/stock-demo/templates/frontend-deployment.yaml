@@ -1,0 +1,53 @@
+{{- $component := "stock-frontend" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-frontend
+  namespace: {{ include "stock-demo.namespace" . }}
+  labels:
+    {{- include "stock-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $component }}
+spec:
+  replicas: {{ .Values.replicaCount.frontend }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $component }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "stock-demo.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ $component }}
+        {{- with (dict "component" $component "Values" .Values "Chart" .Chart) }}
+        {{- include "stock-demo.ddLabels" . | nindent 8 }}
+        {{- end }}
+      annotations:
+        ad.datadoghq.com/stock-frontend.logs: |
+          [{"source": "nodejs", "service": {{ $component | quote }}}]
+    spec:
+      containers:
+        - name: stock-frontend
+          image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
+          imagePullPolicy: {{ .Values.images.frontend.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DD_ENV
+              value: {{ .Values.datadog.env | quote }}
+            - name: DD_SERVICE
+              value: {{ $component | quote }}
+            - name: DD_VERSION
+              value: {{ .Chart.AppVersion | quote }}
+            - name: DD_SITE
+              value: {{ .Values.datadog.site | quote }}
+            {{- include "stock-demo.ddAgentHostEnv" . | nindent 12 }}
+            - name: BACKEND_URL
+              value: "http://{{ .Release.Name }}-backend"
+          resources:
+            {{- toYaml .Values.resources.frontend | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5

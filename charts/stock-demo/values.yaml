@@ -1,0 +1,93 @@
+# ── Identity ──────────────────────────────────────────────────────────────────
+# Customer short-name (e.g. "acme"). Used in labels, namespace suffix, and DD tags.
+customer: "demo"
+
+# ── Namespace ─────────────────────────────────────────────────────────────────
+# Set to "" to deploy into an existing namespace (must already exist).
+# When non-empty the chart creates the namespace for you.
+namespace:
+  create: true
+  # Defaults to "stock-<customer>" when left empty.
+  name: ""
+
+# ── Images ────────────────────────────────────────────────────────────────────
+images:
+  backend:
+    repository: public.ecr.aws/datadog/apps/stock-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: public.ecr.aws/datadog/apps/stock-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+
+# ── Replica counts ────────────────────────────────────────────────────────────
+replicaCount:
+  backend: 2
+  frontend: 2
+
+# ── Datadog ───────────────────────────────────────────────────────────────────
+datadog:
+  # API key — required: --set datadog.apiKey=xxx  or  --set-string datadog.apiKey=xxx
+  apiKey: ""
+  # Env tag sent to Datadog (traces, logs, metrics)
+  env: "demo"
+  # Site (datadoghq.com / datadoghq.eu / us3.datadoghq.com)
+  site: "datadoghq.com"
+  # Agent host — override if not using DaemonSet (e.g. remote agent)
+  # Leave empty to use the pod's hostIP (standard DaemonSet setup).
+  agentHost: ""
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
+postgres:
+  password: "stockpass"
+  database: "stockdb"
+  user: "stockuser"
+  storage: "10Gi"
+  storageClass: "gp3"
+
+# ── IP allowlist ──────────────────────────────────────────────────────────────
+# CIDRs allowed to reach the frontend LoadBalancer.
+# Empty list = open to the world (0.0.0.0/0).
+ipAllowlist: []
+# Example:
+# ipAllowlist:
+#   - "203.0.113.0/24"   # customer office
+#   - "10.0.0.0/8"       # internal VPN
+
+# ── Resource requests/limits ──────────────────────────────────────────────────
+resources:
+  backend:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  frontend:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  postgres:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Service ───────────────────────────────────────────────────────────────────
+service:
+  frontend:
+    type: LoadBalancer
+    port: 80
+  backend:
+    type: ClusterIP
+    port: 80

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: stock-demo
+description: Three-tier stock-trading demo app (frontend / backend / PostgreSQL) with Datadog observability
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - datadog
+  - demo
+  - stock
+  - semea
+maintainers:
+  - name: SEMEA Solutions Engineering
+    email: victoria.matute@datadoghq.com
