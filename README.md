@@ -11,6 +11,8 @@ Deploys a three-tier stock-trading demo app (frontend / backend / PostgreSQL) wi
 
 ```
 semea-eks-vicma/
+├── charts/
+│   └── stock-demo/             # Helm chart — deploy for any customer with one command
 ├── manifests/
 │   ├── karpenter/
 │   │   ├── ec2nodeclass.yaml    # AWS node configuration (AMI, subnets, SGs)
@@ -29,6 +31,63 @@ semea-eks-vicma/
 │   └── teardown.sh             # Removes app + DD components (keeps EKS cluster)
 └── dashboards/
     └── (dashboard JSON exported from Datadog)
+```
+
+---
+
+## Helm chart — quick deploy for any customer
+
+The `charts/stock-demo` chart is the fastest way for SEMEA SEs to stand up the full stack against any EKS cluster. It wraps all three tiers (frontend, backend, PostgreSQL) with sensible defaults you override per customer.
+
+### Minimal install
+
+```bash
+helm install stock-demo ./charts/stock-demo \
+  --set customer=acme \
+  --set datadog.apiKey=xxx
+```
+
+This creates the namespace `stock-acme` and deploys everything into it.
+
+### Full customer demo with common overrides
+
+```bash
+helm install stock-demo ./charts/stock-demo \
+  --set customer=acme \
+  --set datadog.apiKey=xxx \
+  --set datadog.env=acme-poc \
+  --set replicaCount.backend=3 \
+  --set images.backend.tag=v1.2.3 \
+  --set "ipAllowlist[0]=203.0.113.10/32"
+```
+
+### All configurable values
+
+| Flag | Default | What it controls |
+|------|---------|------------------|
+| `customer` | `demo` | Namespace (`stock-<customer>`), labels, Datadog tags |
+| `datadog.apiKey` | — | **Required.** Stored in a Kubernetes Secret. |
+| `datadog.env` | `demo` | Unified Service Tagging `env` on all pods |
+| `datadog.site` | `datadoghq.com` | Datadog site (EU: `datadoghq.eu`) |
+| `images.backend.tag` | `latest` | Backend image tag |
+| `images.frontend.tag` | `latest` | Frontend image tag |
+| `images.postgres.tag` | `15-alpine` | PostgreSQL image tag |
+| `replicaCount.backend` | `2` | Backend replica count |
+| `replicaCount.frontend` | `2` | Frontend replica count |
+| `ipAllowlist` | `[]` (open) | CIDRs for `loadBalancerSourceRanges` on the frontend LB |
+| `postgres.password` | `stockpass` | PostgreSQL password |
+| `postgres.storage` | `10Gi` | PVC size (requires EBS CSI driver) |
+| `postgres.storageClass` | `gp3` | StorageClass name |
+
+### Upgrade and teardown
+
+```bash
+# Change replica count without redeploying everything
+helm upgrade stock-demo ./charts/stock-demo --set customer=acme --set datadog.apiKey=xxx --set replicaCount.backend=4
+
+# Remove all resources (keeps EKS cluster)
+helm uninstall stock-demo
+kubectl delete namespace stock-acme
 ```
 
 ---
