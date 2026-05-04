@@ -1,0 +1,43 @@
+# Observability Pipelines Worker (OPW) Helm values for semea-eks-vicma
+# Docs: https://docs.datadoghq.com/observability_pipelines/
+# Install: helm upgrade --install opw datadog/observability-pipelines-worker \
+#            -n observability-pipelines --create-namespace -f values-opw.yaml
+
+image:
+  tag: "2"
+
+# Pipeline ID from Datadog UI (Observability Pipelines > Pipelines)
+pipelineId: "REPLACE_WITH_YOUR_PIPELINE_ID"
+
+# Credentials (store in a Kubernetes secret)
+apiKeyExistingSecret: "opw-secret"
+pipelineKeyExistingSecret: "opw-secret"
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Route logs: high-volume debug → Flex Logs; errors/warnings → Standard Index
+# This is configured in the pipeline definition in the Datadog UI.
+# The metric vector.processed_events_total{component_id} reflects routing throughput.
+
+env:
+  - name: DD_ENV
+    value: "demo"
+  - name: DD_CLUSTER_NAME
+    value: "semea-eks-vicma"
+
+service:
+  ports:
+    - name: datadog-agent
+      port: 8888
+      protocol: TCP
+    - name: http-fwd
+      port: 8282
+      protocol: TCP

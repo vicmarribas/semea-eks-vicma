@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock-backend
+  namespace: stock-demo
+  labels:
+    app: stock-backend
+    team: semea
+    tags.datadoghq.com/env: "demo"
+    tags.datadoghq.com/service: "stock-backend"
+    tags.datadoghq.com/version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stock-backend
+  template:
+    metadata:
+      labels:
+        app: stock-backend
+        team: semea
+        tags.datadoghq.com/env: "demo"
+        tags.datadoghq.com/service: "stock-backend"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        ad.datadoghq.com/stock-backend.logs: |
+          [{"source": "python", "service": "stock-backend"}]
+    spec:
+      containers:
+        - name: stock-backend
+          image: public.ecr.aws/datadog/apps/stock-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DD_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/env']
+            - name: DD_SERVICE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/service']
+            - name: DD_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/version']
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_AGENT_PORT
+              value: "8126"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stock-secrets
+                  key: database-url
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stock-backend
+  namespace: stock-demo
+spec:
+  selector:
+    app: stock-backend
+  ports:
+    - port: 80
+      targetPort: 8080

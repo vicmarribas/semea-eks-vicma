@@ -1,0 +1,73 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    metadata:
+      labels:
+        team: semea
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      requirements:
+        - key: "karpenter.k8s.aws/instance-category"
+          operator: In
+          values: ["c", "m", "r"]
+        - key: "karpenter.k8s.aws/instance-cpu"
+          operator: In
+          values: ["2", "4", "8"]
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["amd64"]
+  limits:
+    cpu: 100
+    memory: 400Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+---
+# On-demand pool for critical workloads (Datadog Agent, databases)
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: on-demand-critical
+spec:
+  template:
+    metadata:
+      labels:
+        team: semea
+        workload-type: critical
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      requirements:
+        - key: "karpenter.k8s.aws/instance-category"
+          operator: In
+          values: ["m"]
+        - key: "karpenter.k8s.aws/instance-cpu"
+          operator: In
+          values: ["2", "4"]
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["on-demand"]
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["amd64"]
+      taints:
+        - key: workload-type
+          value: critical
+          effect: NoSchedule
+  limits:
+    cpu: 20
+    memory: 80Gi
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 60s

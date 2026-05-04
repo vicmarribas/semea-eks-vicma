@@ -1,0 +1,24 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  role: "KarpenterNodeRole-semea-eks-vicma"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "semea-eks-vicma"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "semea-eks-vicma"
+  amiSelectorTerms:
+    - alias: al2@latest
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        encrypted: true
+  tags:
+    team: semea
+    cluster: semea-eks-vicma

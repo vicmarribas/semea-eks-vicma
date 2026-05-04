@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: stock-demo
+data:
+  init.sql: |
+    CREATE DATABASE stockdb;
+    CREATE USER stockuser WITH PASSWORD 'stockpass';
+    GRANT ALL PRIVILEGES ON DATABASE stockdb TO stockuser;
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: stock-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3  # requires EBS CSI driver
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock-db
+  namespace: stock-demo
+  labels:
+    app: stock-db
+    team: semea
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stock-db
+  template:
+    metadata:
+      labels:
+        app: stock-db
+        team: semea
+      annotations:
+        # Datadog PostgreSQL autodiscovery
+        ad.datadoghq.com/postgres.checks: |
+          {
+            "postgres": {
+              "instances": [{"host": "%%host%%", "port": 5432,
+                             "username": "datadog", "password": "%%env_DD_POSTGRES_PASSWORD%%",
+                             "dbname": "stockdb", "ssl": "disable"}]
+            }
+          }
+        ad.datadoghq.com/postgres.logs: |
+          [{"source": "postgresql", "service": "stock-db"}]
+    spec:
+      tolerations:
+        - key: workload-type
+          value: critical
+          effect: NoSchedule
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: stockdb
+            - name: POSTGRES_USER
+              value: stockuser
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stock-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: init-sql
+          configMap:
+            name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stock-db
+  namespace: stock-demo
+spec:
+  selector:
+    app: stock-db
+  ports:
+    - port: 5432
+      targetPort: 5432

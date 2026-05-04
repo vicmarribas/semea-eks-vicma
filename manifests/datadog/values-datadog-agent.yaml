@@ -1,0 +1,67 @@
+# Datadog Agent Helm values for semea-eks-vicma
+# Install: helm upgrade --install datadog datadog/datadog -n datadog --create-namespace -f values-datadog-agent.yaml
+
+datadog:
+  apiKeyExistingSecret: datadog-secret
+  appKeyExistingSecret: datadog-secret
+  site: datadoghq.com
+
+  clusterName: semea-eks-vicma
+
+  tags:
+    - "team:semea"
+    - "cluster:semea-eks-vicma"
+    - "env:demo"
+
+  # APM
+  apm:
+    portEnabled: true
+    port: 8126
+
+  # Log collection
+  logs:
+    enabled: true
+    containerCollectAll: true
+
+  # Process monitoring
+  processAgent:
+    enabled: true
+    processCollection: true
+
+  # NPM (Network Performance Monitoring)
+  networkMonitoring:
+    enabled: true
+
+  # Kubernetes state metrics
+  kubeStateMetricsEnabled: true
+
+  # Admission Controller (auto-injects APM library)
+  admissionController:
+    enabled: true
+    mutateUnlabelled: false
+
+  # Container image collection
+  containerImageCollection:
+    enabled: true
+
+  # SBOM collection
+  sbom:
+    containerImage:
+      enabled: true
+
+clusterAgent:
+  enabled: true
+  replicas: 2
+
+  # External Metrics for HPA
+  metricsProvider:
+    enabled: true
+    useDatadogMetrics: true
+
+agents:
+  tolerations:
+    - operator: Exists
+
+# Karpenter node label passthrough
+# Karpenter sets karpenter.sh/capacity-type on nodes;
+# the Agent picks it up automatically via host tags.
